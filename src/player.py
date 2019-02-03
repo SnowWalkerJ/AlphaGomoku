@@ -1,8 +1,8 @@
 from functools import partial
 import random
 import numpy as np
-import torch
-from src.common.torch_utils import Variable
+import torch as th
+import torch.nn as nn
 from src.constant import Color
 from src.mcts import MCTS
 from src.utils import board_to_state, available_moves, check_validation
@@ -18,7 +18,7 @@ class Player:
 
 
 class AlphaPlayer(Player):
-    def __init__(self, game, network: torch.nn.Module, c_puct: float=5):
+    def __init__(self, game, network: nn.Module, c_puct: float=5):
         self._network = network
         network.eval()
         self._c_puct = c_puct
@@ -50,14 +50,15 @@ class AlphaPlayer(Player):
 
     def policy_value_fn(self, board, to_dict=False):
         x = board_to_state(board)
-        x = Variable(torch.from_numpy(x).float(), volatile=True).unsqueeze(0)
-        prior_probs, value = self._network(x)
+        x = th.tensor(x).float().to(self._network.device).unsqueeze(0)
+        with th.no_grad():
+            prior_probs, value = self._network(x)
         if to_dict:
-            prior_probs = prior_probs.data.cpu().numpy().reshape(*board.shape)
+            prior_probs = prior_probs.cpu().view(*board.shape).numpy()
             moves = available_moves(board)
             rows, cols = zip(*moves)
             prior_probs = dict(zip(moves, prior_probs[np.array(rows), np.array(cols)]))
-            value = value.data[0, 0]
+            value = value[0, 0].item()
         return prior_probs, value
 
     def reset(self):

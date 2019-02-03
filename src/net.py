@@ -1,4 +1,4 @@
-import torch
+import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 import src.config as config
@@ -6,7 +6,7 @@ import src.config as config
 
 class ResidualBlock(nn.Module):
     def __init__(self):
-        super(ResidualBlock, self).__init__()
+        super().__init__()
         self.residual = nn.Sequential(
             nn.Conv2d(in_channels=config.RESIDUAL_KERNELS, out_channels=config.RESIDUAL_KERNELS, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(num_features=config.RESIDUAL_KERNELS),
@@ -24,7 +24,7 @@ class ResidualBlock(nn.Module):
 
 class PolicyHead(nn.Module):
     def __init__(self, board_size):
-        super(PolicyHead, self).__init__()
+        super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=config.RESIDUAL_KERNELS, out_channels=2, kernel_size=1, padding=0, bias=False),
             nn.BatchNorm2d(num_features=2),
@@ -43,7 +43,7 @@ class PolicyHead(nn.Module):
 
 class ValueHead(nn.Module):
     def __init__(self, board_size):
-        super(ValueHead, self).__init__()
+        super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=config.RESIDUAL_KERNELS, out_channels=1, kernel_size=1, padding=0, bias=False),
             nn.BatchNorm2d(num_features=1),
@@ -66,7 +66,7 @@ class ValueHead(nn.Module):
 
 class ResidualAlpha(nn.Module):
     def __init__(self, num_residuals, board_size):
-        super(ResidualAlpha, self).__init__()
+        super().__init__()
         conv_bottom = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=config.RESIDUAL_KERNELS, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(num_features=config.RESIDUAL_KERNELS),
@@ -82,3 +82,7 @@ class ResidualAlpha(nn.Module):
         value = self.value_head(x)
         policy = self.policy_head(x)
         return policy, value
+
+    def to(self, device):
+        self.device = device
+        return super().to(device)

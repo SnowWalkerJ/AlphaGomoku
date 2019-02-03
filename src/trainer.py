@@ -5,14 +5,15 @@ from collections import deque
 from time import sleep
 
 import numpy as np
+import torch as th
 import torch
+from torch.optim.lr_scheduler import LambdaLR
 import torch.multiprocessing as mp
 from progressbar import ETA, Bar, Percentage, ProgressBar
 from tensorboardX import SummaryWriter
-from torch.optim.lr_scheduler import LambdaLR
 
 import src.config as config
-from src.common.torch_utils import Variable
+from src.torch_utils import device
 from src.constant import Color
 from src.factory import create_gomoku, create_network
 from src.player import AlphaPlayer, BasicPlayer
@@ -86,7 +87,7 @@ class Evaluator(mp.Process):
             average_score = np.mean(self.win_count_series)
             i += 1
             if i > 20 and i % 10 == 0:
-                torch.save(self.network.state_dict(), "models/model.ckpt.%03d" % (i // 0))
+                th.save(self.network.state_dict(), "models/model.ckpt.%03d" % (i // 10))
                 self.queue.put((i // 10, average_score))
 
 
@@ -97,17 +98,17 @@ class Trainer:
         self.evaluation_queue = mp.Queue()
         self.buffer = deque(maxlen=config.BUFFER_SIZE)
         self.trigger = mp.Event()
-        self.network = create_network()
+        self.network = create_network().to(th.device("cuda: 0"))
         self.optimizer = torch.optim.SGD(self.network.parameters(), lr=config.LEARNING_RATE, momentum=config.MOMENTUM)
         self.scheduler = LambdaLR(self.optimizer, self.scheduler_fn)
-        self.evaluator = Evaluator(create_gomoku(), create_network(), self.network, self.trigger, self.evaluation_queue, num_rounds=config.NUM_ROUNDS)
+        self.evaluator = Evaluator(create_gomoku(), create_network().to(th.device("cuda: 0")), self.network, self.trigger, self.evaluation_queue, num_rounds=config.NUM_ROUNDS)
         self.selfplayers = []
         self.rounds_selfplay = 0
         self.loss = None
         self.steps = 0
-        for _ in range(num_processes):
+        for i in range(num_processes):
             game = create_gomoku()
-            network = create_network()
+            network = create_network().to(th.device("cuda: 1"))
             player = AlphaPlayer(game, network)
             selfplayer = SelfPlayer(game, player, network, self.network, self.queue)
             self.selfplayers.append(selfplayer)
@@ -150,7 +151,7 @@ class Trainer:
             sleep(0.1) # Lower training frequency to allow the self-players have more resource
             try:
                 step, score = self.evaluation_queue.get_nowait()
-                self.writer.add_scalar("WinRate", score, step)
+                self.writer.add_scalar("WinRate", score, global_step=step)
                 self.writer.add_scalar("Loss", self.loss, global_step=step)
                 self.writer.add_scalar("Train Steps", self.steps, global_step=step)
                 self.steps = 0
@@ -167,17 +168,19 @@ class Trainer:
             pass
 
     def train_once(self, batch_size: int, l2_c: float=1e-4):
+        device = th.device("cuda: 0")
+    
         batch_data = random.sample(self.buffer, batch_size)
         states, probs, z = zip(*batch_data)
         states, probs = self.transform(states, probs)
-        v_state = Variable(torch.from_numpy(np.stack(states, 0)))
+        v_state = th.tensor(np.stack(states, 0)).to(device)
 
         probs_, z_ = self.network(v_state)
-        loss_entropy = -(Variable(torch.FloatTensor(probs)) * probs_.log()).sum(1).mean()
-        loss_value = (Variable(torch.FloatTensor(z)) - z_).pow(2).mean()
+        loss_entropy = -(th.tensor(probs).to(device) * probs_.log()).sum(1).mean()
+        loss_value = (th.tensor(z).to(device) - z_).pow(2).mean()
         loss_l2 = sum(p.pow(2).sum() for p in self.network.parameters())
         loss = loss_entropy + loss_value + l2_c * loss_l2
-        self.loss = loss.data[0]
+        self.loss = loss.item()
 
         self.optimizer.zero_grad()
         loss.backward()
