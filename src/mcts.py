@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 from src.utils import place_move, available_moves, check_validation
 from src.constant import Color, Outcome
@@ -13,7 +15,7 @@ class Node:
         self._children = {}
 
     def select(self, c: float):
-        return max(self._children.items(), key=lambda item: item[1].get_value(c))
+        return max(self._children.items(), key=lambda item: item[1].get_value(c) + random.random() * 0.001)
 
     def expand(self, priors):
         for action, prior_prob in priors.items():
@@ -60,7 +62,7 @@ class MCTS:
         self._root = Node(None, 1.0)
         self._policy_value_fn = policy_value_fn
         self._c_puct = c_puct
-        
+
     def _playout_once(self, game):
         board = game.get_board()
         color = Color.Black if board.sum() == 0 else Color.White
@@ -104,7 +106,3 @@ class MCTS:
             self._root = self._root.children[move].as_root()
         else:
             self._root = Node(None, 1.0)
-
-    
-
-    

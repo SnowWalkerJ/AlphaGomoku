@@ -1,6 +1,7 @@
 import copy
 import warnings
 from typing import List, Tuple
+
 import numpy as np
 import src.exceptions as exceptions
 from src.player import Player
@@ -76,7 +77,11 @@ cdef class Gomoku:
         self.reset()
         while 1:
             last_move = self.moves[-1] if self.moves else None
-            self.play_one_move(last_move)
+            try:
+                self.play_one_move(last_move)
+            except Exception as e:
+                print(e)
+                continue
             outcome = self.check_outcome_fast(self.board, self.moves[-1], self.current_color)
             if outcome == Outcome.Win:
                 return self.current_color

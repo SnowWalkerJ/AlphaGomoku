@@ -143,12 +143,11 @@ class Trainer:
         bar.finish()
         print("Buffer filled.")
 
-        self.trigger.set()
-
         while 1:
             self.get_data()
             self.train_once(batch_size=config.BATCH_SIZE)
-            sleep(0.1) # Lower training frequency to allow the self-players have more resource
+            sleep(0.1)  # Lower training frequency to allow the self-players have more resource
+            self.trigger.set()
             try:
                 step, score = self.evaluation_queue.get_nowait()
                 self.writer.add_scalar("WinRate", score, global_step=step)
@@ -157,7 +156,7 @@ class Trainer:
                 self.steps = 0
             except queue.Empty:
                 pass
-        
+
     def get_data(self):
         try:
             while 1:
@@ -176,8 +175,8 @@ class Trainer:
         v_state = th.tensor(np.stack(states, 0)).to(device)
 
         probs_, z_ = self.network(v_state)
-        loss_entropy = -(th.tensor(probs).to(device) * probs_.log()).sum(1).mean()
-        loss_value = (th.tensor(z).to(device) - z_).pow(2).mean()
+        loss_entropy = -(th.tensor(probs).to(device).float() * probs_.log()).sum(1).mean()
+        loss_value = (th.tensor(z).to(device).float() - z_).pow(2).mean()
         loss_l2 = sum(p.pow(2).sum() for p in self.network.parameters())
         loss = loss_entropy + loss_value + l2_c * loss_l2
         self.loss = loss.item()
