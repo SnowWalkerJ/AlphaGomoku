@@ -1,5 +1,7 @@
 from functools import partial
+from abc import ABC, abstractmethod
 import random
+
 import numpy as np
 import torch as th
 import torch.nn as nn
@@ -9,12 +11,13 @@ from src.utils import board_to_state, available_moves, check_validation
 import src.config as config
 
 
-class Player:
+class Player(ABC):
     def __init__(self, game):
         self._game = game
 
-    def get_action(self, last_move, return_probs:bool=False, temperature:int=1):
-        raise NotImplementedError
+    @abstractmethod
+    def get_action(self, last_move, return_probs: bool=False, temperature: int=1):
+        pass
 
 
 class AlphaPlayer(Player):
@@ -66,7 +69,7 @@ class AlphaPlayer(Player):
 
 
 class BasicPlayer(Player):
-    def __init__(self, game, num_playouts: int, c_puct:float=5):
+    def __init__(self, game, num_playouts: int, c_puct: float=5):
         self.num_playouts = num_playouts
         self._mcts = MCTS(partial(self.policy_value_fn, to_dict=True), c_puct)
         self._self_play = False
@@ -78,7 +81,9 @@ class BasicPlayer(Player):
             self._mcts.update_with_move(last_move)
         action_probs = self._mcts.get_action_probs(self._game, num_playouts=self.num_playouts, temperature=temperature)
         actions, probs = zip(*action_probs.items())
-        action = actions[np.random.choice(np.arange(len(actions)), p=np.asarray(probs))]
+        i = np.random.choice(np.arange(len(actions)), p=np.asarray(probs))
+        print(actions, probs, i)
+        action = actions[i]
         self._mcts.update_with_move(action)
         if return_probs:
             full_probs = np.zeros(config.BOARD_SIZE*config.BOARD_SIZE)
@@ -89,7 +94,7 @@ class BasicPlayer(Player):
             return action
 
     def policy_value_fn(self, board, to_dict=False):
-        value = 0.5
+        value = 0
         moves = available_moves(board)
         p = 1 / len(moves)
         prior_probs = {move: p for move in moves}
@@ -97,3 +102,12 @@ class BasicPlayer(Player):
 
     def reset(self):
         self._mcts = MCTS(partial(self.policy_value_fn, to_dict=True), self._c_puct)
+
+
+class HumanPlayer(Player):
+    def __init__(self, game, get_action):
+        super().__init__(game)
+        self.__get_action = get_action
+
+    def get_action(self, last_move, return_probs=False, temperature=0.1):
+        return self.__get_action(last_move, return_probs, temperature)

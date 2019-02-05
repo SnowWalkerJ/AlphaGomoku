@@ -143,12 +143,11 @@ class Trainer:
         bar.finish()
         print("Buffer filled.")
 
-        self.trigger.set()
-
         while 1:
             self.get_data()
             self.train_once(batch_size=config.BATCH_SIZE)
-            sleep(0.1) # Lower training frequency to allow the self-players have more resource
+            sleep(0.1)  # Lower training frequency to allow the self-players have more resource
+            self.trigger.set()
             try:
                 step, score = self.evaluation_queue.get_nowait()
                 self.writer.add_scalar("WinRate", score, global_step=step)
@@ -157,7 +156,7 @@ class Trainer:
                 self.steps = 0
             except queue.Empty:
                 pass
-        
+
     def get_data(self):
         try:
             while 1:

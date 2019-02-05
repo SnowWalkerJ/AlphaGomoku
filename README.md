@@ -1,13 +1,14 @@
+# AlphaGomoku
+
 AlphaGomoku is to use the similar algorithm as AlphaZero to train an AI player in Gomoku.
 The main idea is from the paper [Mastering the Game of Go without Human Knowledge](https://www.nature.com/articles/nature24270). We also reference to the Github repository [junxiaosong/AlphaZero_Gomoku](https://github.com/junxiaosong/AlphaZero_Gomoku) for realization of applying this algorithem on Gomoku.
 
-# What we do
+## What we do
 
 1. We modified the program into multiprocessing version so that the training process should be much faster.
 2. We rewrite some of the game logic with [Cython](http://cython.org) so that the time spent on CPU is reduced.
 
-
-# Experiments
+## Experiments
 
 We start with a simple game where the board size is 7*7, and four-in-a-row is considered winning. The configuration of this AlphaGomoku is listed in the table.
 
